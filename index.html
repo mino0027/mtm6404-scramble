@@ -1,20 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Welcome to Scramble.</title>
-  <link rel="stylesheet" href="style.css">
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <title>Scramble Game</title>
+  <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-
 <body>
+  <div id="output"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-  <script type="text/babel" src="app.js"></script>
+    function shuffle(src) {
+      const copy = [...src];
+      const length = copy.length;
+      for (let i = 0; i < length; i++) {
+        const x = copy[i];
+        const y = Math.floor(Math.random() * length);
+        const z = copy[y];
+        copy[i] = z;
+        copy[y] = x;
+      }
+      if (typeof src === 'string') {
+        return copy.join('');
+      }
+      return copy;
+    }
+
+    function App() {
+      const words = ["apple", "banana", "cherry", "date", "fig", "grape", "kiwi", "lemon", "mango", "orange"];
+      const maxStrikes = 3;
+
+      const [currentWord, setCurrentWord] = useState('');
+      const [scrambledWord, setScrambledWord] = useState('');
+      const [guess, setGuess] = useState('');
+      const [points, setPoints] = useState(0);
+      const [strikes, setStrikes] = useState(0);
+      const [passes, setPasses] = useState(3);
+      const [progress, setProgress] = useState([]);
+      const [remainingWords, setRemainingWords] = useState([...words]);
+
+      useEffect(() => {
+        const savedProgress = JSON.parse(localStorage.getItem('scrambleProgress')) || [];
+        const savedPoints = JSON.parse(localStorage.getItem('scramblePoints')) || 0;
+        const savedStrikes = JSON.parse(localStorage.getItem('scrambleStrikes')) || 0;
+        const savedPasses = JSON.parse(localStorage.getItem('scramblePasses')) || 3;
+        const savedRemainingWords = JSON.parse(localStorage.getItem('scrambleRemainingWords')) || [...words];
+
+        setProgress(savedProgress);
+        setPoints(savedPoints);
+        setStrikes(savedStrikes);
+        setPasses(savedPasses);
+        setRemainingWords(savedRemainingWords);
+
+        if (savedRemainingWords.length > 0) {
+          const newWord = savedRemainingWords[0];
+          setCurrentWord(newWord);
+          setScrambledWord(shuffle(newWord.split('')).join(''));
+        }
+      }, []);
+
+      useEffect(() => {
+        localStorage.setItem('scrambleProgress', JSON.stringify(progress));
+        localStorage.setItem('scramblePoints', JSON.stringify(points));
+        localStorage.setItem('scrambleStrikes', JSON.stringify(strikes));
+        localStorage.setItem('scramblePasses', JSON.stringify(passes));
+        localStorage.setItem('scrambleRemainingWords', JSON.stringify(remainingWords));
+      }, [progress, points, strikes, passes, remainingWords]);
+
+      const handleGuess = (e) => {
+        e.preventDefault();
+        if (guess === currentWord) {
+          setPoints(points + 1);
+          const newProgress = [...progress, currentWord];
+          setProgress(newProgress);
+          const newRemainingWords = remainingWords.slice(1);
+          setRemainingWords(newRemainingWords);
+          if (newRemainingWords.length > 0) {
+            const newWord = newRemainingWords[0];
+            setCurrentWord(newWord);
+            setScrambledWord(shuffle(newWord.split('')).join(''));
+          } else {
+            setScrambledWord('You have completed the game!');
+          }
+        } else {
+          setStrikes(strikes + 1);
+        }
+        setGuess('');
+      };
+
+      const handlePass = () => {
+        if (passes > 0) {
+          setPasses(passes - 1);
+          const newProgress = [...progress, currentWord];
+          setProgress(newProgress);
+          const newRemainingWords = remainingWords.slice(1);
+          setRemainingWords(newRemainingWords);
+          if (newRemainingWords.length > 0) {
+            const newWord = newRemainingWords[0];
+            setCurrentWord(newWord);
+            setScrambledWord(shuffle(newWord.split('')).join(''));
+          } else {
+            setScrambledWord('You have completed the game!');
+          }
+        }
+      };
+
+      const handleRestart = () => {
+        setProgress([]);
+        setPoints(0);
+        setStrikes(0);
+        setPasses(3);
+        setRemainingWords([...words]);
+        const newWord = words[0];
+        setCurrentWord(newWord);
+        setScrambledWord(shuffle(newWord.split('')).join(''));
+        localStorage.removeItem('scrambleProgress');
+        localStorage.removeItem('scramblePoints');
+        localStorage.removeItem('scrambleStrikes');
+        localStorage.removeItem('scramblePasses');
+        localStorage.removeItem('scrambleRemainingWords');
+      };
+
+      if (progress.length === words.length || strikes >= maxStrikes) {
+        return (
+          <div>
+            <h1>Game Over</h1>
+            <p>{strikes >= maxStrikes ? 'You have reached the maximum number of strikes.' : 'Congratulations! You have completed the game.'}</p>
+            <button onClick={handleRestart}>Play Again</button>
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          <h1>Scramble Game</h1>
+          <p>Scrambled Word: {scrambledWord}</p>
+          <form onSubmit={handleGuess}>
+            <input
+              type="text"
+              value={guess}
+              onChange={(e) => setGuess(e.target.value)}
+            />
+            <button type="submit">Guess</button>
+          </form>
+          <button onClick={handlePass} disabled={passes <= 0}>Pass ({passes} remaining)</button>
+          <p>Points: {points}</p>
+          <p>Strikes: {strikes}/{maxStrikes}</p>
+          <p>Progress: {progress.length}/{words.length}</p>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('output'));
+  </script>
 </body>
-
 </html>
